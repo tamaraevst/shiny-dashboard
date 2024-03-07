@@ -13,6 +13,7 @@ jobs:
         uses: r-lib/actions/setup-r-dependencies@v2
         with:
           packages: |
+            any::here
             any::shinydashboard 
             any::dplyr
             any::gprofiler2
