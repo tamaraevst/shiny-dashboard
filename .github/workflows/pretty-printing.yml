@@ -6,7 +6,7 @@ on:
   pull_request:
     branches: [main]
 
-name: lint
+name: pretty-printing
 
 jobs:
   lint:
@@ -20,13 +20,10 @@ jobs:
         uses: r-lib/actions/setup-r-dependencies@v2
         with:
           packages: |
-            any::lintr
+            any::styler
       
       - name: Check out repository
         uses: actions/checkout@v3
 
-      - name: Lint
-        run: lintr::lint_dir()
-        shell: Rscript {0}
-        env:
-          LINTR_ERROR_ON_LINT: true
+      - name: Pretty printing
+        run: styler::style_dir()
