@@ -17,6 +17,7 @@ jobs:
             any::shinydashboard 
             any::dplyr
             any::gprofiler2
+            any::DT
 
       - name: Check out repository
         uses: actions/checkout@v3
