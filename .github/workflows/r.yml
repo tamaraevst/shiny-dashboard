@@ -14,7 +14,7 @@ jobs:
         with:
           packages: |
             any::shinydashboard 
-            any::gdplyr
+            any::dplyr
             any::gprofiler2
 
       - name: Check out repository
