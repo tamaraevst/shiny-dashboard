@@ -1,6 +1,6 @@
 ## read.R ##
 
-# Read matrix, meta-data (TO DO: add sleection of the chosen organism)
+# Read matrix, meta-data (TO DO: add selection of the chosen organism)
 
 expression.matrix <- as.matrix(read.csv(
   "example_data/expression_matrix_preprocessed.csv",

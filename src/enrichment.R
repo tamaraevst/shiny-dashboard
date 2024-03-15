@@ -1,7 +1,6 @@
 ## enrichment.R ##
 
 library(ggplot2)
-library(gprofiler2)
 library(plotly)
 
 source(here::here("src/utils.R"))
@@ -10,16 +9,17 @@ source(here::here("src/utils.R"))
 
 plot_enrichment <- function(
     expression.matrix,
+    pcas = NULL,
     n.abundant = 50,
-    organism = "mmusculus",
-    threshold = 0.05) {
-  expr.list <- sort_genes(expression.matrix, n.abundant)
+    dataset.organism = "mmusculus",
+    threshold = 0.001) {
+  genes.list <- choose_pca_genes(expression.matrix, pcas = pcas, n.abundant = n.abundant)
 
-  genes <- rownames(expr.list)
+  genes <- rownames(genes.list)
 
-  gostres <- gost(genes, organism = organism)
+  gostres <- gost(genes, ordered_query = TRUE, organism = dataset.organism, user_threshold = threshold)
 
-  graph <- gostplot(gostres, capped = TRUE, interactive = FALSE)
+  graph <- gostplot(gostres, capped = FALSE, interactive = FALSE)
 
   graph
 }
@@ -29,36 +29,52 @@ plot_enrichment <- function(
 
 table_enrichment <- function(
     expression.matrix,
+    pcas = NULL,
     n.abundant = 50,
-    organism = "mmusculus") {
-  expr.list <- sort_genes(expression.matrix, n.abundant)
+    dataset.organism = "mmusculus",
+    threshold = 0.05) {
+  genes.list <- choose_pca_genes(expression.matrix, pcas = pcas, n.abundant = n.abundant)
 
-  genes <- rownames(expr.list)
+  genes <- rownames(genes.list)
 
-  gostres <- gost(genes, organism = organism)
+  gostres <- gost(genes, ordered_query = TRUE, organism = dataset.organism, user_threshold = threshold, evcodes = TRUE)
 
-  enrichment.table <- gostres$result[c("source", "term_id", "term_name", "p_value", "significant")]
+  enrichment.table.sorted <- gostres$result[c("term_id", "term_name", "p_value", "intersection_size", "intersection")]
+
+  is.num <- sapply(enrichment.table.sorted, is.numeric)
+  enrichment.table.sorted[is.num] <- lapply(enrichment.table.sorted[is.num], format, digits = 3)
+
+  enrichment.table <- enrichment.table.sorted
 
   return(enrichment.table)
 }
-
 
 # Ui part for the Enrichmnet window
 
 Enrichment.ui <- tabItem(
   "Enrichment",
   fluidRow(
+    box(plotOutput("enrichment", height = 400), width = 12),
+    box(selectInput(inputId = "list.pcas.enrichment", label = "Choose your principal components from the list", choices = c("PCA1", "PCA2", "PCA3"), multiple = TRUE, selected = c("PCA1")), width = 4),
     box(
-      title = "Select number of genes",
       sliderInput("enrichment.n.abundant",
-        label = "Number of genes",
-        min = 10, value = 50, max = 500, step = 10, ticks = TRUE
-      ), width = 4
+        label = "Select top number of genes ordered by PCA results",
+        min = 10, value = 50, max = 1000, step = 10, ticks = TRUE
+      ),
+      width = 4
     ),
-    box(plotOutput("enrichment", height = 400), width = 8),
-    box(DT::dataTableOutput("entable"),
-      height = 100,
-      width = 10
+    box(
+      sliderInput("enrichment.threshold",
+        label = "Select p-value threshold",
+        min = 0.001, value = 0.05, max = 0.08, step = 0.005, ticks = TRUE
+      ),
+      width = 4
+    ),
+    box(DT::dataTableOutput("entable", fill = TRUE),
+      width = 12
+    ),
+    box(verbatimTextOutput("engenes"),
+      width = 12
     )
   )
 )
