@@ -1,80 +1,54 @@
-## enrichment.R ##
+library(fgsea)
+library(memoise)
 
-library(ggplot2)
-library(plotly)
-
-source(here::here("src/utils.R"))
-
-# Function for the Manhattan plot enrichment analysis results. The user is prompted to select top abundant genes from the slider, these genes are then used for plotting.
-
-plot_enrichment <- function(
+do_enrichment <- function(
     expression.matrix,
-    pcas = NULL,
-    n.abundant = 50,
-    dataset.organism = "mmusculus",
-    threshold = 0.001) {
-  genes.list <- choose_pca_genes(expression.matrix, pcas = pcas, n.abundant = n.abundant)
+    pcas,
+    n.abundant) {
+  # pathways <- getGenesets(org = "mmu", db = "kegg")
+  # print(names(pathways))
 
-  genes <- rownames(genes.list)
+  gmt.file <- file.path("./example_data/20221221_kegg_mmu.gmt")
+  pathways <- gmtPathways(gmt.file)
 
-  gostres <- gost(genes, ordered_query = TRUE, organism = dataset.organism, user_threshold = threshold)
-
-  graph <- gostplot(gostres, capped = FALSE, interactive = FALSE)
-
-  graph
-}
-
-
-# Table with the summary from the enrichment analysis, based off the top abundant genes selected by the user
-
-table_enrichment <- function(
+  genes.list <- sort_pca_genes_by_scores(
     expression.matrix,
-    pcas = NULL,
-    n.abundant = 50,
-    dataset.organism = "mmusculus",
-    threshold = 0.05) {
-  genes.list <- choose_pca_genes(expression.matrix, pcas = pcas, n.abundant = n.abundant)
-
-  genes <- rownames(genes.list)
-
-  gostres <- gost(genes, ordered_query = TRUE, organism = dataset.organism, user_threshold = threshold, evcodes = TRUE)
-
-  enrichment.table.sorted <- gostres$result[c("term_id", "term_name", "p_value", "intersection_size", "intersection")]
-
-  is.num <- sapply(enrichment.table.sorted, is.numeric)
-  enrichment.table.sorted[is.num] <- lapply(enrichment.table.sorted[is.num], format, digits = 3)
-
-  enrichment.table <- enrichment.table.sorted
-
-  return(enrichment.table)
-}
-
-# Ui part for the Enrichmnet window
-
-Enrichment.ui <- tabItem(
-  "Enrichment",
-  fluidRow(
-    box(plotOutput("enrichment", height = 400), width = 12),
-    box(selectInput(inputId = "list.pcas.enrichment", label = "Choose your principal components from the list", choices = c("PCA1", "PCA2", "PCA3"), multiple = TRUE, selected = c("PCA1")), width = 4),
-    box(
-      sliderInput("enrichment.n.abundant",
-        label = "Select top number of genes ordered by PCA results",
-        min = 10, value = 50, max = 1000, step = 10, ticks = TRUE
-      ),
-      width = 4
-    ),
-    box(
-      sliderInput("enrichment.threshold",
-        label = "Select p-value threshold",
-        min = 0.001, value = 0.05, max = 0.08, step = 0.005, ticks = TRUE
-      ),
-      width = 4
-    ),
-    box(DT::dataTableOutput("entable", fill = TRUE),
-      width = 12
-    ),
-    box(verbatimTextOutput("engenes"),
-      width = 12
-    )
+    pcas = pcas,
+    n.abundant = n.abundant
   )
-)
+
+  # convert.genes <- mapIds(org.Mm.eg.db,
+  #   keys = rownames(genes.list),
+  #   column = "ENTREZID", keytype = "ENSEMBL"
+  # )
+
+  # names(convert.genes) <- NULL
+
+  genes.list <- cbind(rownames(genes.list), data.frame(genes.list, row.names = NULL))
+
+  colnames(genes.list) <- c("t", "ID")
+  genes.list <- setNames(genes.list$ID, genes.list$t)
+
+  # print(str(genes.list))
+  # genes.list <- genes.list[!duplicated(names(genes.list))]
+
+  minSize <- 15
+  maxSize <- length(pathways)
+
+  # nPermSimple = 10000
+  cat("Begining Enrichment Analysis with the following parameters: \n")
+  cat("- minSize = ", minSize, "\n")
+  cat("- maxSize = ", maxSize, "\n")
+  cat("- nPermSimple = 10000 \n")
+  fgseaRes <- fgsea(pathways, genes.list, minSize = minSize, maxSize = maxSize, nPermSimple = 10000)
+  cat("------------------------------\n")
+  cat("Completed Enrichment Analysis \n")
+  # fgseaResMain <- fgseaRes[, leadingEdge := mapIdsList(
+  #                                      x=org.Mm.eg.db,
+  #                                      keys=leadingEdge,
+  #                                      keytype="ENTREZID",
+  #                                      column="SYMBOL")]
+  return(fgseaRes)
+}
+
+memo_do_enrichment <- memoise(do_enrichment)

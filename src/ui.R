@@ -5,8 +5,10 @@
 sidebar <- dashboardSidebar(
   sidebarMenu(
     menuItem("Your Data", tabName = "yourdata", icon = icon("dashboard")),
-    menuItem("PCA Analysis", tabName = "PCAplot"),
-    menuItem("Enrichment Analysis", tabName = "Enrichment")
+    menuItem("PCA Analysis on Samples", tabName = "PCAsamples"),
+    menuItem("PCA Analysis on Genes", tabName = "PCAplot"),
+    menuItem("Enrichment Analysis", tabName = "Enrichment"),
+    menuItem("Pathview Analysis", tabName = "Pathview")
   )
 )
 
@@ -27,12 +29,15 @@ body <- dashboardBody(
       fluidRow(
         box(
           DT::dataTableOutput("contents"),
+          style = "overflow-y: scroll;overflow-x: scroll;",
           width = 15
         )
       )
     ),
+    PCA.samples.ui,
     PCA.ui,
-    Enrichment.ui
+    Enrichment.ui,
+    Pathview.ui
   )
 )
 
