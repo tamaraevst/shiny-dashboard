@@ -6,13 +6,6 @@ library(dplyr)
 source(here::here("src/pca.R"))
 source(here::here("src/data.R"))
 
-get_eigenvalue <- function(
-    expr) {
-  eig <- (expr$sdev)^2
-
-  return(eig)
-}
-
 # Plotting function of the PCA based off the selected genes and samples chosen for grouping
 
 plot_pca <- function(
@@ -21,7 +14,6 @@ plot_pca <- function(
     n.abundant = length(rownames(expression.matrix.freeze)),
     show.labels = FALSE,
     label.size = 0.1) {
-
   pca.array <- c()
   for (i in (1:length(pcas)))
   {

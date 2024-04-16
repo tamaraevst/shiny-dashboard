@@ -3,17 +3,16 @@ library(memoise)
 
 do_enrichment <- function(
     expression.matrix,
-    pcas,
-    n.abundant) {
+    pca,
+    n.abundant = length(rownames(expression.matrix))) {
   # pathways <- getGenesets(org = "mmu", db = "kegg")
   # print(names(pathways))
 
-  gmt.file <- file.path("./example_data/20221221_kegg_mmu.gmt")
   pathways <- gmtPathways(gmt.file)
 
   genes.list <- sort_pca_genes_by_scores(
     expression.matrix,
-    pcas = pcas,
+    pca = pca,
     n.abundant = n.abundant
   )
 

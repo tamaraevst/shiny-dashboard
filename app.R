@@ -89,14 +89,54 @@ server <- function(input, output, session) {
   })
   output[["variance.pca.samples"]] <- renderPlot(pca.samples.variance.plot())
 
-  enrichment.plot <- reactive({
-    myplot <- plot_enrichment(
-      expression.matrix = expression.matrix.freeze,
-      pcas = input$list.pcas.enrichment
-    )
-    myplot
+  # enrichment.plot <- reactive({
+  #   myplot <- plot_enrichment(
+  #     expression.matrix = expression.matrix.freeze,
+  #     pca = input$list.pcas.enrichment
+  #   )
+  #   myplot
+  # })
+  # output[["enrichment"]] <- renderPlot(enrichment.plot())
+
+  fgseaRes <- reactive({
+    frame <- memo_do_enrichment(expression.matrix = expression.matrix.freeze, pca = input$list.pcas.enrichment)
+    frame[frame$padj < 0.05, ]
   })
-  output[["enrichment"]] <- renderPlot(enrichment.plot())
+
+
+  output$enrichment <- renderPlot({
+    ggplot(data = fgseaRes(), aes(x = as.numeric(row.names(fgseaRes())), y = -log10(padj))) +
+      geom_point(color = "purple", size = 5) +
+      labs(x = "Pathway index", y = "-log10(padj)") +
+      geom_hline(yintercept = -log10(0.05)) +
+      scale_shape_discrete(
+        name = "Legend",
+        labels = c("padj=0.05")
+      ) +
+      theme_minimal()
+  })
+  # scale_color_manual(
+  # breaks = c('pval = 0.05'),
+  # values = c('pval = 0.05' = 'purple')) +
+
+  displayed_text <- reactive({
+    req(input$plot.hover)
+    hover <- input$plot.hover
+    dist <- sqrt((hover$x - as.numeric(row.names(fgseaRes())))^2 + (hover$y + log10(fgseaRes()$padj))^2)
+
+    if (min(dist) < 0.3) {
+      fgseaRes()$pathway[which.min(dist)]
+    } else {
+      NULL
+    }
+  })
+
+  output$hover.info <- renderPrint({
+    req(displayed_text())
+
+    cat("Name\n")
+    displayed_text()
+  })
 
   enrichment.up.plot <- reactive({
     myplot <- bar_enrichment_up(
@@ -161,127 +201,96 @@ server <- function(input, output, session) {
   })
   output[["heatmap"]] <- renderPlot(heatmap.plot())
 
-  observeEvent(input$showPathview.enrichment, {
-    output$pathview.enrichment <- renderImage(
-      {
-        s <- input$entable_rows_selected
-        if (length(s)) {
-          pathway <- sub(".*?mmu(.*?)_.*", "\\1", enrichment.table()[s, 1])
+  #  output[["entable.pathview"]] <- DT::renderDataTable(enrichment.table(),
+  #     server = FALSE, rownames = FALSE, columnDefs = list(list(visible = FALSE, targets = 4))
+  #     )
 
-          start.time <- Sys.time()
+  observe(updateSelectInput(session, "condition1.pathview", choices = unique(meta[, input$metaname.pathview]), selected = unique(meta[, input$metaname.pathview])[1]))
+  observe(updateSelectInput(session, "condition2.pathview", choices = unique(meta[, input$metaname.pathview]), selected = unique(meta[, input$metaname.pathview])[2]))
+  observe(updateSelectInput(session, "control.pathview", choices = unique(meta[, input$metaname.pathview])))
 
-          do_pathview(pathway, enrichment.table()[s, 5])
-
-          end.time <- Sys.time()
-          time.taken <- end.time - start.time
-          cat("Time taken for pathview: \n", time.taken) 
-
-          # A temp file to save the output.
-          # This file will be removed later by renderImage
-          outfile <- paste("mmu", as.character(pathway), ".png", sep = "")
-
-          # Return a list containing the filename
-          list(
-            src = outfile,
-            contentType = "image/png",
-            width = 700,
-            height = 800,
-            alt = "This is alternate text"
-          )
-        }
-      },
-      deleteFile = TRUE
-    )
+  pv.out <- reactive({
+    s <- input$entable_rows_selected
+    id <- sub(".*?mmu(.*?)_.*", "\\1", enrichment.table()[s, 1])
+    id.name <- enrichment.table()[s, 1]
+    do_pathview(id, id.name, meta, input$condition1.pathview, input$condition2.pathview, input$metaname.pathview)
   })
 
-  observeEvent(input$showPathview.enrichment, {
-    output$pathview.enrichment2 <- renderImage(
-      {
-        s <- input$entable_rows_selected
-        if (length(s)) {
-          pathway <- sub(".*?mmu(.*?)_.*", "\\1", enrichment.table()[s, 1])
-
-          # A temp file to save the output.
-          # This file will be removed later by renderImage
-          outfile <- paste("mmu", as.character(pathway), ".pathview.png", sep = "")
-
-          # Return a list containing the filename
-          list(
-            src = outfile,
-            contentType = "image/png",
-            width = 700,
-            height = 800,
-            alt = "This is alternate text"
-          )
-        }
-      },
-      deleteFile = TRUE
-    )
-  })
-
-  output$pathview.genes <- renderText({
-    paste0(input$selectedGenes, collapse = ", ")
-  })
-
-  output$pathview.id <- renderText({
-    paste0(input$selectedPath, collapse = ", ")
-  })
-
-  observeEvent(input$showPathview, {
+  observeEvent(
+    {
+      input$condition1.pathview
+      input$condition2.pathview
+      input$entable_rows_selected
+    },
     output$pathview <- renderImage(
       {
-        if (length(input$selectedGenes) && length(input$selectedPath)) {
-          selected.genes <- as.vector(strsplit(input$selectedGenes, ",")[[1]])
+        s <- input$entable_rows_selected
+        id <- sub(".*?mmu(.*?)_.*", "\\1", enrichment.table()[s, 1])
 
-          find.labels <- expression.matrix.symbols[expression.matrix.symbols$NAME %in% selected.genes, ]
-          labels <- find.labels$ensembl
+        # A temp file to save the output.
+        # This file will be removed later by renderImage
+        outfile <- paste("mmu", as.character(id), ".pathview.png", sep = "")
 
-          do_pathview(input$selectedPath, labels)
-
-          # A temp file to save the output.
-          # This file will be removed later by renderImage
-          outfile <- paste("mmu", as.character(input$selectedPath), ".png", sep = "")
-
-          # Return a list containing the filename
-          list(
-            src = outfile,
-            contentType = "image/png",
-            width = 700,
-            height = 800,
-            alt = "This is alternate text"
-          )
-        }
+        # Return a list containing the filename
+        list(
+          src = outfile,
+          contentType = "image/png"
+          # width = 800,
+          # height = 1000
+        )
       },
-      deleteFile = TRUE
+      deleteFile = FALSE
     )
+  )
+
+  output$info <- renderPrint({
+    req(input$plot.click)
+    x <- round(input$plot.click$x, 3)
+    y <- round(input$plot.click$y, 3)
+    cat("[", x, ", ", y, "] \n", sep = "")
+
+    data <- get_data_from_the_click(pv.out(), x, y)
+
+    if (length(data[1]) != 0) {
+      cat("You have clicked on the node with KEGG name", data[1], "and label", data[2])
+    } else {
+      cat("This node is not supported here.")
+    }
   })
 
-  observeEvent(input$showPathview, {output$pathview2 <- 
-    renderImage(
-      {
-        if (length(input$selectedGenes) && length(input$selectedPath)) {
-          selected.genes <- as.vector(strsplit(input$selectedGenes, ",")[[1]])
-
-          find.labels <- expression.matrix.symbols[expression.matrix.symbols$NAME %in% selected.genes, ]
-          labels <- find.labels$ensembl
-
-          # A temp file to save the output.
-          # This file will be removed later by renderImage
-          outfile <- paste("mmu", as.character(input$selectedPath), ".pathview.png", sep = "")
-
-          # Return a list containing the filename
-          list(
-            src = outfile,
-            contentType = "image/png",
-            width = 700,
-            height = 800,
-            alt = "This is alternate text"
-          )
-        }
-      },
-      deleteFile = TRUE
+  pathview.density <- reactive({
+    myplot <- plot_density(
+      pv.out()$plot.data.gene
     )
+
+    myplot
   })
+
+  observeEvent(
+    {
+      input$condition1.pathview
+      input$condition2.pathview
+      input$entable_rows_selected
+    },
+    output$pathview.density <- renderPlot(pathview.density())
+  )
+
+  bar.plot.foldchange <- reactive({
+    req(input$plot.click)
+    x <- round(input$plot.click$x, 3)
+    y <- round(input$plot.click$y, 3)
+    data <- get_data_from_the_click(pv.out(), x, y)
+
+    plot <- plot_fc_of_gene(
+      gene.id = data[1],
+      metadata = meta,
+      control = input$control.pathview,
+      annotation.id = input$metaname.pathview
+    )
+
+    plot
+  })
+  output$bar.plot.foldchange <- renderPlot(bar.plot.foldchange())
 }
 
 start.time <- Sys.time()

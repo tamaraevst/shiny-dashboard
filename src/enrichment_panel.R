@@ -11,18 +11,18 @@ source(here::here("src/utils.R"))
 
 plot_enrichment <- function(
     expression.matrix,
-    pcas = c("PCA1"),
+    pca = c("PCA1"),
     n.abundant = length(rownames(expression.matrix.freeze)),
     dataset.organism = "mmusculus") {
-  fgseaRes <- memo_do_enrichment(expression.matrix, pcas, n.abundant)
+  fgseaRes <- memo_do_enrichment(expression.matrix, pca, n.abundant)
 
-  enrichment.plot <- ggplot(data = fgseaRes, aes(x = as.numeric(row.names(fgseaRes)), y = -log10(pval))) +
+  enrichment.plot <- ggplot(data = fgseaRes, aes(x = as.numeric(row.names(fgseaRes)), y = -log10(padj))) +
     geom_point(color = "purple") +
-    labs(x = "Pathway index", y = "-log10(pval)") +
+    labs(x = "Pathway index", y = "-log10(padj)") +
     geom_hline(yintercept = -log10(0.05)) +
     scale_shape_discrete(
       name = "Legend",
-      labels = c("pval=0.05")
+      labels = c("padj=0.05")
     )
   # scale_color_manual(
   # breaks = c('pval = 0.05'),
@@ -41,20 +41,35 @@ bar_enrichment_up <- function(
 
   topPathwaysUp <- fgseaRes[ES > 0][head(order(padj), n = 10), ]
 
-  topPathwaysDown <- fgseaRes[ES < 0][head(order(padj), n = 10), ]
+  genes.up <- topPathwaysUp[, c("pathway", "padj", "size", "ES")]
+  genes.up <- genes.up[order(genes.up$ES), ]
 
-  genes.up <- topPathwaysUp[, c("pathway", "padj", "size")]
-
-  bar.plot.up <- ggplot(genes.up, aes(x = size, y = pathway, fill = padj)) +
-    scale_fill_continuous(
-      low = "purple", high = "blue", name = "padj",
-      guide = guide_colorbar(reverse = TRUE)
-    ) +
-    geom_col() +
-    labs(x = "Size", y = "Pathway") +
+  bar.plot.up <- ggplot(genes.up, aes(x = ES, y = pathway, size = size, colour = log10(padj))) +
+    geom_point(aes(fill = log10(padj)), colour = "black", shape = 21) +
+    viridis::scale_color_viridis(option = "plasma", breaks = scales::pretty_breaks(n = 5)) +
+    viridis::scale_fill_viridis(option = "plasma") +
+    theme_minimal() +
+    # scale_colour_continuous(low="purple", high="blue", name = "log10(padj)", limits = c(min(log10(genes.up$padj)), max(log10(genes.up$padj))),
+    #         guide=guide_colorbar(reverse=TRUE)) +
+    labs(x = "Enrichment score", y = "Pathway") +
     scale_y_discrete(limits = genes.up$pathway)
 
-  bar.plot.up + coord_flip()
+  # rng <- range(genes.up$padj)
+
+  # bar.plot.up <- ggplot(genes.up, aes(x = size, y = pathway, fill = padj)) +
+  #   scale_fill_continuous(
+  #     low = "purple", high = "blue", name = "padj",
+  #     guide = guide_colorbar(reverse = TRUE)
+  #   ) +
+  #   scale_fill_gradient2(low = "blue", mid = "cyan", high = "purple",
+  #                      midpoint = mean(rng),  # Same midpoint for both plots
+  #                      breaks = seq(-100, 100, 4),  # Breaks in the scale bar
+  #                      limits = c(floor(rng[1]), ceiling(rng[2]))) +
+  #   geom_col() +
+  #   labs(x = "Size", y = "Pathway") +
+  #   scale_y_discrete(limits = genes.up$pathway)
+
+  # bar.plot.up + coord_flip()
 
   return(bar.plot.up)
 }
@@ -68,18 +83,16 @@ bar_enrichment_down <- function(
 
   topPathwaysDown <- fgseaRes[ES < 0][head(order(padj), n = 10), ]
 
-  genes.down <- topPathwaysDown[, c("pathway", "padj", "size")]
+  genes.down <- topPathwaysDown[, c("pathway", "padj", "size", "ES")]
+  genes.down <- genes.down[order(genes.down$ES), ]
 
-  bar.plot.down <- ggplot(genes.down, aes(x = size, y = pathway, fill = padj)) +
-    scale_fill_continuous(
-      low = "purple", high = "blue", name = "padj",
-      guide = guide_colorbar(reverse = TRUE)
-    ) +
-    geom_col() +
-    labs(x = "Size", y = "Pathway") +
+  bar.plot.down <- ggplot(genes.down, aes(x = ES, y = pathway, size = size, colour = log10(padj))) +
+    geom_point(aes(fill = log10(padj)), colour = "black", shape = 21) +
+    viridis::scale_color_viridis(option = "plasma", breaks = scales::pretty_breaks(n = 5)) +
+    viridis::scale_fill_viridis(option = "plasma") +
+    theme_minimal() +
+    labs(x = "Enrichment score", y = "Pathway") +
     scale_y_discrete(limits = genes.down$pathway)
-
-  bar.plot.down + coord_flip()
 
   return(bar.plot.down)
 }
@@ -142,10 +155,11 @@ heatmap_enrichment <- function(
 
   enrichment.heatmap <- ggplot(expression.marix.melt, aes(genes, variable)) + # Create heatmap with ggplot2
     geom_tile(aes(fill = value)) +
+    theme_minimal() +
     theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust = 1)) +
     viridis::scale_color_viridis(discrete = FALSE) +
     viridis::scale_fill_viridis(discrete = FALSE) +
-    labs(x = "", y = "", fill="expression")
+    labs(x = "", y = "", fill = "z-score of expression")
 
   return(enrichment.heatmap)
 }
@@ -155,8 +169,11 @@ heatmap_enrichment <- function(
 Enrichment.ui <- tabItem(
   "Enrichment",
   fluidRow(
-    box(plotOutput("enrichment", height = 400), width = 8, title = "Scatter of enrichmnet analysis results", footer = "Above we display the overall distribution of p-values across all enrichment pathways. Here enrichmnet pathways are labelled by their index on the x-axis and their corresponding p-values on the y-axis. When this page is loaded, it performs Gene Set Enrichment Analysis using a ranked list of genes from your privided data set. The genes are ranked by their PCA scores, or equivalently by the coordinates of the data projected onto the PCs. The first instance of the page diplays the results of the enrichmnent analysis using default pricincipal components to rank the genes (you can see what they are on the right-hand side panel). You should change the principal components if you are interested in different analysis."),
-    box(selectInput(inputId = "list.pcas.enrichment", label = "Choose your principal components from the list", choices = c("PCA1", "PCA2", "PCA3"), multiple = TRUE, selected = c("PCA1")), width = 4),
+    box(plotOutput("enrichment", height = 400, hover = hoverOpts(id = "plot.hover")),
+      verbatimTextOutput("hover.info"),
+      width = 8, title = "Scatter of enrichmnet analysis results", footer = "Above we display the overall distribution of p-values across all enrichment pathways. Here enrichmnet pathways are labelled by their index on the x-axis and their corresponding p-values on the y-axis. When this page is loaded, it performs Gene Set Enrichment Analysis using a ranked list of genes from your privided data set. The genes are ranked by their PCA scores, or equivalently by the coordinates of the data projected onto the PCs. The first instance of the page diplays the results of the enrichmnent analysis using default pricincipal components to rank the genes (you can see what they are on the right-hand side panel). You should change the principal components if you are interested in different analysis."
+    ),
+    box(selectInput(inputId = "list.pcas.enrichment", label = "Choose your principal component from the list", choices = c("PCA1", "PCA2", "PCA3"), multiple = FALSE, selected = c("PCA1")), width = 4),
     # box(
     #   sliderInput("enrichment.n.abundant",
     #     label = "Select top number of genes ordered by PCA results",
@@ -167,18 +184,18 @@ Enrichment.ui <- tabItem(
     box(plotOutput("upgenes", height = 500), width = 6, title = "Bar plot of top 10 enrichmnent pathways with positive enrichment score", footer = "A positive enrichment score means that a gene set belonging to a particular pathway is over-represented with respect to the list of ranked genes we performed enrichment analysis on."),
     box(plotOutput("downgenes", height = 500), width = 6, title = "Bar plot of top 10 enrichmnent pathways with negative enrichment score", footer = "A negative enrichment score means that a gene set belonging to a particular pathway is under-represented with respect to the list of ranked genes we performed enrichment analysis on."),
     box(DT::dataTableOutput("entable", fill = TRUE),
-      width = 12, title = "Summary table of enrichmeent analysis", footer = "You can click on the rows of the table to extract more information on the pathways. In particular, a list and a heat-map of leading edge genes belogning to a chosen pathway will be displayed below."
+      width = 12, title = "Summary table of enrichment analysis", footer = "You can click on the rows of the table to extract more information on the pathways. In particular, a list and a heat-map of leading edge genes belogning to a chosen pathway will be displayed below."
     ),
     box(verbatimTextOutput("engenes"),
-      width = 12, title = "Genes"
+      width = 12, title = "Leading edge genes"
     ),
     box(plotOutput("heatmap"),
-      width = 12, title = "Heatmap"
+      width = 12, title = "Heatmap of leading edge genes"
     )
-  ),
-  fluidRow(box(actionButton("showPathview.enrichment", "Show Pathview", width = 200), footer = "Click on the button to generate the pathview results for a given set of genes and an enrichment pathway.")),
-  fluidRow(box(imageOutput("pathview.enrichment", height = 1000, fill = TRUE), width = 12)),
-  fluidRow(box(imageOutput("pathview.enrichment2", height = 1000, fill = TRUE), width = 12))
+  )
+  # fluidRow(box(actionButton("showPathview.enrichment", "Show Pathview", width = 200), footer = "Click on the button to generate the pathview results for a given set of genes and an enrichment pathway.")),
+  # fluidRow(box(imageOutput("pathview.enrichment", height = 1000, fill = TRUE), width = 12)),
+  # fluidRow(box(imageOutput("pathview.enrichment2", height = 1000, fill = TRUE), width = 12))
 )
 
 # expression.matrix <- as.matrix(read.csv(

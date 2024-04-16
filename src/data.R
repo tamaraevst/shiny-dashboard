@@ -11,3 +11,5 @@ meta <- data.frame(
 )
 
 expression.matrix.symbols <- convert_from_esembl_to_symbol(expression.matrix.freeze)
+
+gmt.file <- file.path("example_data/20221221_kegg_mmu.gmt")

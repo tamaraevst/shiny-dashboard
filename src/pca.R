@@ -107,35 +107,26 @@ sum_contrib_pca <- function(
 
 sort_pca_genes_by_scores <- function(
     expression.matrix,
-    pcas = c("PCA2"),
+    pca = c("PCA1"),
     n.abundant = 50) {
-  pca.array <- c()
-  for (i in (1:length(pcas)))
-  {
-    if (pcas[i] == "PCA1") {
-      pca.array <- c(pca.array, 1)
-    }
-
-    if (pcas[i] == "PCA2") {
-      pca.array <- c(pca.array, 2)
-    }
-
-    if (pcas[i] == "PCA3") {
-      pca.array <- c(pca.array, 3)
-    }
+  if (pca == "PCA1") {
+    pca.chosen <- 1
   }
 
-  matrix <- do_pca(expression.matrix)
-
-  pca.contrib <- matrix$x
-
-  if (length(pca.array) == 1) {
-    ordered.pca.contrib <- pca.contrib[order(pca.contrib[, pca.array], decreasing = TRUE), pca.array]
-    sort.pca.contrib <- as.data.frame(ordered.pca.contrib[1:n.abundant])
-  } else {
-    pca.contrib.abs.cropped <- pca.contrib[, pca.array]
-    sort.pca.contrib <- sort_genes(pca.contrib.abs.cropped, n.abundant)
+  if (pca == "PCA2") {
+    pca.chosen <- 1
   }
+
+  if (pca == "PCA3") {
+    pca.chosen <- 1
+  }
+
+  matrix <- do_pca_reverse(expression.matrix)
+
+  pca.contrib <- matrix$rotation
+
+  ordered.pca.contrib <- pca.contrib[order(pca.contrib[, pca.chosen], decreasing = TRUE), pca.chosen]
+  sort.pca.contrib <- as.data.frame(ordered.pca.contrib[1:n.abundant])
 
   return(sort.pca.contrib)
 }
