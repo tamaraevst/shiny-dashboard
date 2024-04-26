@@ -1,15 +1,25 @@
-source(here::here("src/utils.R"))
+## data.R ##
 
-expression.matrix.freeze <- as.matrix(read.csv(
-  "example_data/expression_matrix_preprocessed.csv",
-  sep = ",", row.names = 1
-))
+Data.server <- function(id, expression.matrix) {
+  moduleServer(
+    id,
+    function(input, output, session) {
+      output$contents <- DT::renderDataTable({
+        DT::datatable(expression.matrix)
+      })
+    }
+  )
+}
 
-meta <- data.frame(
-  srr = colnames(expression.matrix.freeze),
-  timepoint = rep(c("0h", "12h", "36h"), each = 2)
-)
-
-expression.matrix.symbols <- convert_from_esembl_to_symbol(expression.matrix.freeze)
-
-gmt.file <- file.path("example_data/20221221_kegg_mmu.gmt")
+Data.ui <- function(id) {
+  tabItem(
+    tabName = "yourdata",
+    fluidRow(
+      box(
+        DT::dataTableOutput(NS(id, "contents")),
+        style = "overflow-y: scroll;overflow-x: scroll;",
+        width = 15
+      )
+    )
+  )
+}

@@ -1,3 +1,5 @@
+## pca.R ##
+
 library(dplyr)
 library(memoise)
 
@@ -16,6 +18,18 @@ do_pca_reverse <- function(
     stats::prcomp(center = TRUE, scale = TRUE)
 
   return(result)
+}
+
+do_pca_reverse_order <- function(
+    expression.matrix,
+    pcas = c("PCA1", "PCA2"),
+    n.abundant = NULL) {
+  n.abundant <- min(n.abundant, nrow(expression.matrix))
+
+  expr.PCA.list <- sort_genes(expression.matrix, n.abundant)
+  expr.PCA.list <- do_pca_reverse(expr.PCA.list)
+
+  return(expr.PCA.list)
 }
 
 prcomp_reconstruct_data <- function(
@@ -69,15 +83,15 @@ sum_contrib_pca <- function(
   pca.array <- c()
   for (i in (1:length(pcas)))
   {
-    if (pcas[i] == "PCA1") {
+    if (pcas[i] == "PC1") {
       pca.array <- c(pca.array, 1)
     }
 
-    if (pcas[i] == "PCA2") {
+    if (pcas[i] == "PC2") {
       pca.array <- c(pca.array, 2)
     }
 
-    if (pcas[i] == "PCA3") {
+    if (pcas[i] == "PC3") {
       pca.array <- c(pca.array, 3)
     }
   }
@@ -107,17 +121,17 @@ sum_contrib_pca <- function(
 
 sort_pca_genes_by_scores <- function(
     expression.matrix,
-    pca = c("PCA1"),
-    n.abundant = 50) {
-  if (pca == "PCA1") {
+    pca = c("PC1"),
+    n.abundant = 500) {
+  if (pca == "PC1") {
     pca.chosen <- 1
   }
 
-  if (pca == "PCA2") {
+  if (pca == "PC2") {
     pca.chosen <- 1
   }
 
-  if (pca == "PCA3") {
+  if (pca == "PC3") {
     pca.chosen <- 1
   }
 

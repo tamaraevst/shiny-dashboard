@@ -1,27 +1,20 @@
+## enrichment.R ##
+
 library(fgsea)
 library(memoise)
 
 do_enrichment <- function(
     expression.matrix,
     pca,
-    n.abundant = length(rownames(expression.matrix))) {
-  # pathways <- getGenesets(org = "mmu", db = "kegg")
-  # print(names(pathways))
-
-  pathways <- gmtPathways(gmt.file)
+    n.abundant = length(rownames(expression.matrix)),
+    pathways.gmt.file) {
+  pathways <- gmtPathways(pathways.gmt.file)
 
   genes.list <- sort_pca_genes_by_scores(
     expression.matrix,
     pca = pca,
     n.abundant = n.abundant
   )
-
-  # convert.genes <- mapIds(org.Mm.eg.db,
-  #   keys = rownames(genes.list),
-  #   column = "ENTREZID", keytype = "ENSEMBL"
-  # )
-
-  # names(convert.genes) <- NULL
 
   genes.list <- cbind(rownames(genes.list), data.frame(genes.list, row.names = NULL))
 
@@ -42,11 +35,7 @@ do_enrichment <- function(
   fgseaRes <- fgsea(pathways, genes.list, minSize = minSize, maxSize = maxSize, nPermSimple = 10000)
   cat("------------------------------\n")
   cat("Completed Enrichment Analysis \n")
-  # fgseaResMain <- fgseaRes[, leadingEdge := mapIdsList(
-  #                                      x=org.Mm.eg.db,
-  #                                      keys=leadingEdge,
-  #                                      keytype="ENTREZID",
-  #                                      column="SYMBOL")]
+
   return(fgseaRes)
 }
 
