@@ -4,8 +4,11 @@ Data.server <- function(id, expression.matrix) {
   moduleServer(
     id,
     function(input, output, session) {
+      expression.matrix.filtered <- expression.matrix[, -c(1, 2)] %>%
+        relocate(NAME)
+
       output$contents <- DT::renderDataTable({
-        DT::datatable(expression.matrix)
+        DT::datatable(expression.matrix.filtered)
       })
     }
   )

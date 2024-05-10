@@ -3,6 +3,8 @@
 library(fgsea)
 library(memoise)
 
+# Function to call enrichment analysis using Fast Gene Set Enrichment (fGSEA) implementation, see https://bioconductor.org/packages/release/bioc/html/fgsea.html for further details!
+
 do_enrichment <- function(
     expression.matrix,
     pca,
@@ -10,7 +12,7 @@ do_enrichment <- function(
     pathways.gmt.file) {
   pathways <- gmtPathways(pathways.gmt.file)
 
-  genes.list <- sort_pca_genes_by_scores(
+  genes.list <- sort_pca_genes_by_loading(
     expression.matrix,
     pca = pca,
     n.abundant = n.abundant

@@ -27,16 +27,16 @@ meta.groups <- subset(meta, select = -1)
 
 expression.matrix.symbols <- convert_from_esembl_to_symbol(expression.matrix.freeze)
 
-gmt.file <- file.path("./example_data/20221221_kegg_mmu.gmt")
+gmt.file <- file.path("example_data/20221221_kegg_mmu.gmt")
 
 sidebar <- dashboardSidebar(
   sidebarMenu(
     menuItem("Your Data", tabName = "yourdata", icon = icon("dashboard")),
-    menuItem("PCA Analysis on Samples", tabName = "PCAsamples"),
-    menuItem("PCA Analysis on Genes", tabName = "PCAplot"),
+    menuItem("PCA (genes)", tabName = "PCAgenes"),
+    menuItem("PCA (samples)", tabName = "PCAsamples"),
     menuItem("Enrichment Analysis", tabName = "Enrichment"),
-    menuItem("Pathview Analysis", tabName = "Pathview"),
-    menuItem("Differential Expression", tabName = "DE")
+    menuItem("Differential Expression", tabName = "DE"),
+    menuItem("Pathway Visualisation", tabName = "Pathview")
   )
 )
 
@@ -49,10 +49,10 @@ body <- dashboardBody(tabItems(
   PCA.ui("summary.pca", expression.matrix.freeze),
   # Enrichment analysis and heatmap page
   Enrichment.ui("enrichment"),
-  # Pathview analysis page
-  Pathview.ui("pathview", meta),
   # Differential expression analysis page
-  DE.ui("summary.deseq2", meta.groups)
+  DE.ui("summary.deseq2", meta.groups),
+  # Pathview analysis page
+  Pathview.ui("pathview", meta.groups)
 ))
 
 ui <- dashboardPage(
@@ -63,12 +63,12 @@ ui <- dashboardPage(
 )
 
 server <- function(input, output, session) {
-  Data.server("contents", expression.matrix.freeze)
+  Data.server("contents", expression.matrix.symbols)
   PCAsamples.server("summary.pca.samples", expression.matrix.freeze, meta)
   PCA.server("summary.pca", expression.matrix.freeze)
   rows.selected <- Enrichment.server("enrichment", expression.matrix.freeze, gmt.file)
-  Pathview.server("pathview", expression.matrix.freeze, meta, gmt.file, rows.selected)
-  DE.server("summary.deseq2", expression.matrix.freeze, meta, meta.groups, rows.selected)
+  deseq2.results <- DE.server("summary.deseq2", expression.matrix.freeze, meta, meta.groups, rows.selected)
+  Pathview.server("pathview", expression.matrix.freeze, meta, meta.groups, rows.selected, deseq2.results[[1]], deseq2.results[[2]])
 }
 
 shinyApp(ui, server)

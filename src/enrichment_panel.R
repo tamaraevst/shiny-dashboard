@@ -6,15 +6,13 @@ library(reshape)
 
 source(here::here("src/utils.R"))
 
-# Ui part for the Enrichmnet window
-
 Enrichment.ui <- function(id) {
   tabItem(
     tabName = "Enrichment",
     fluidRow(
       box(plotOutput(NS(id, "enrichment"), height = 400, hover = hoverOpts(NS(id, "plot.hover"))),
         verbatimTextOutput(NS(id, "hover.info")),
-        width = 8, title = "Scatter of enrichmnet analysis results", footer = "Above we display the overall distribution of p-values across all enrichment pathways. Here enrichmnet pathways are labelled by their index on the x-axis and their corresponding p-values on the y-axis. When this page is loaded, it performs Gene Set Enrichment Analysis using a ranked list of genes from your privided data set. The genes are ranked by their PCA scores, or equivalently by the coordinates of the data projected onto the PCs. The first instance of the page diplays the results of the enrichmnent analysis using default pricincipal components to rank the genes (you can see what they are on the right-hand side panel). You should change the principal components if you are interested in different analysis."
+        width = 8, title = "Scatter of enrichmnet analysis results", footer = "Above we display the overall distribution of adjusted p-values across all enrichment pathways that are filtered out by the set p-value threshold on the slider. Here enrichmnet pathways are labelled by their index on the x-axis and their corresponding adjusted p-values on the y-axis. You may hover over the plotted points to see what enrichment pathway they represent, the names will be displayed as they appear in the pathway file you have provided. When this page is loaded, it performs Gene Set Enrichment Analysis using a ranked list of genes from your expression data. The genes are ranked by their PCA loadings. The first instance of the page diplays the results of the enrichmnent analysis using the default pricincipal component (the first one) to rank the genes."
       ),
       box(selectInput(inputId = NS(id, "list.pcas.enrichment"), label = "Choose your principal component from the list", choices = c("PC1", "PC2", "PC3"), multiple = FALSE, selected = c("PC1")), width = 4),
       box(sliderInput(NS(id, "enrichment.p.threshold"),
@@ -27,13 +25,13 @@ Enrichment.ui <- function(id) {
       #   ),
       #   width = 4
       # ),
-      box(plotOutput(NS(id, "upgenes"), height = 500), width = 6, title = "Bar plot of top 10 enrichmnent pathways with positive enrichment score", footer = "A positive enrichment score means that a gene set belonging to a particular pathway is over-represented with respect to the list of ranked genes we performed enrichment analysis on."),
-      box(plotOutput(NS(id, "downgenes"), height = 500), width = 6, title = "Bar plot of top 10 enrichmnent pathways with negative enrichment score", footer = "A negative enrichment score means that a gene set belonging to a particular pathway is under-represented with respect to the list of ranked genes we performed enrichment analysis on."),
+      box(plotOutput(NS(id, "upgenes"), height = 500), width = 6, title = "Bar plot of top 10 enrichmnent pathways with positive enrichment score", footer = "A positive enrichment score means that a gene set belonging to a particular pathway is more enriched in the positively-regulated genes."),
+      box(plotOutput(NS(id, "downgenes"), height = 500), width = 6, title = "Bar plot of top 10 enrichmnent pathways with negative enrichment score", footer = "A negative enrichment score corresponds to enrichment in the negatively regulated genes."),
       box(DT::dataTableOutput(NS(id, "entable"), fill = TRUE),
         width = 12, title = "Summary table of enrichment analysis", footer = "You can click on the rows of the table to extract more information on the pathways. In particular, a list and a heat-map of leading edge genes belogning to a chosen pathway will be displayed below."
       ),
       box(verbatimTextOutput(NS(id, "engenes")),
-        width = 12, title = "Leading edge genes"
+        width = 12, title = "Leading edge genes", footer = "Leading edge genes are the subset of genes found in the ranking at the maximal ES."
       ),
       box(plotOutput(NS(id, "heatmap")),
         width = 12, title = "Heatmap of leading edge genes"
@@ -174,6 +172,8 @@ plot_enrichment <- function(
   enrichment.plot
 }
 
+# A dot plot visualisiting pathways with positive ESs. TODO: write one function for the dot plot that will show positive and negative ESs; need just one additional parameter to implement this.
+
 bar_enrichment_up <- function(
     fgseaRes,
     dataset.organism = "mmusculus",
@@ -211,6 +211,8 @@ bar_enrichment_up <- function(
   return(bar.plot.up)
 }
 
+# A dot plot visualisiting pathways with negative ESs.
+
 bar_enrichment_down <- function(
     fgseaRes,
     dataset.organism = "mmusculus",
@@ -247,6 +249,8 @@ table_enrichment <- function(
 
   return(enrichment.table)
 }
+
+# Heatmap of genes wiht normalised expression z-scores for a given pathway index
 
 heatmap_enrichment <- function(
     expression.matrix,

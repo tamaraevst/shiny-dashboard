@@ -2,65 +2,54 @@
 
 library(pathview)
 
-Pathview.ui <- function(id, metadata) {
+Pathview.ui <- function(id, metadata.groups) {
   tabItem(
     tabName = "Pathview",
-    p("In order to use Pathview Analysis page, please make sure you have selected the pathway of interest in the enrichment analysis results table. Below, you are now able to choose a group from your data and two samples to compare. A log2 fold change will be calculated for these selected samples and annotated onto KEGG pathway diagrams. You may click on the nodes (e.g. coloured in genes) on the diagram to extract gene ENTREZID and symbol names. A bar-plot showing the log2 fold change of this gene across samples will also be produced below."),
-    fluidRow(
-      box(selectInput(inputId = NS(id, "metaname.pathview"), label = "Choose your group", choices = colnames(metadata), selected = colnames(metadata)[1]), width = 3),
-      box(selectInput(inputId = NS(id, "condition1.pathview"), label = "Choose comparison condition #1", choices = unique(metadata[, 2]), selected = unique(metadata[, 1])[1]), width = 3),
-      box(selectInput(inputId = NS(id, "condition2.pathview"), label = "Choose comparison condition #2", choices = unique(metadata[, 2]), selected = unique(metadata[, 1])[2]), width = 3)
-    ),
+    p("In order to use Pathview Analysis page, please make sure you have selected the pathway of interest in the enrichment analysis results table. The figure is downloaded directly from KEGG and then annotated using a log2 fold change of groups you have chosen on the Differential Expression Analysis page. You may click on the nodes (e.g. coloured in genes) on the diagram to extract gene ENTREZID and symbol names; you will also see the information on the statistical significance of that gene."),
+    # fluidRow(box(selectInput(inputId = NS(id,"metaname.pathview"), label = "Choose your group", choices = colnames(metadata.groups), selected=colnames(metadata.groups)[1]), width = 3),
+    # box(selectInput(inputId = NS(id,"condition1.pathview"), label = "Choose comparison condition #1", choices=unique(metadata.groups[, 1]), selected=unique(metadata.groups[,1])[1]), width = 3),
+    # box(selectInput(inputId = NS(id,"condition2.pathview"), label = "Choose comparison condition #2", choices=unique(metadata.groups[, 1]), selected=unique(metadata.groups[,1])[2]), width = 3)),
     fluidRow(box(
       style = "overflow-x: scroll;overflow-y: scroll;", imageOutput(NS(id, "pathview"), height = 1100, width = 1100, fill = TRUE, click = NS(id, "plot.click")), title = "Pathview diagram",
       verbatimTextOutput(NS(id, "info")), width = 12
     )),
-    box(DT::dataTableOutput(NS(id, "summary.deseq2"), fill = TRUE),
-      width = 12, title = "Summary table of DE analysis"
-    ),
     fluidRow(box(plotOutput(NS(id, "pathview.density")), title = "Density plot", footer = "This is a density plot of the fold change of all genes present in the selected pathway.", width = 12)),
-    fluidRow(box(selectInput(inputId = NS(id, "control.pathview"), label = "Choose your control sample", choices = unique(metadata[, 1]), selected = metadata[1, 1]), width = 3)),
+    fluidRow(box(selectInput(inputId = NS(id, "control.pathview"), label = "Choose your control sample", choices = unique(metadata.groups[, 1]), selected = metadata.groups[1, 1]), width = 3)),
     fluidRow(box(plotOutput(NS(id, "bar.plot.foldchange")), title = "Bar plot", footer = "This plot shows the fold change of the selected gene across all samples belonging to the chosen group. You should change the 'Control' sample to adjust the fold change calculation to your needs.", width = 10))
   )
 }
 
-Pathview.server <- function(id, expression.matrix, metadata, pathways.gmt.file, rows.selected) {
+Pathview.server <- function(id, expression.matrix, metadata, metadata.groups, rows.selected, de.results, metaname.pathview) {
   moduleServer(
     id,
     function(input, output, session) {
-      observe(updateSelectInput(session, "condition1.pathview", choices = unique(metadata[, input$metaname.pathview]), selected = unique(metadata[, input$metaname.pathview])[1]))
-      observe(updateSelectInput(session, "condition2.pathview", choices = unique(metadata[, input$metaname.pathview]), selected = unique(metadata[, input$metaname.pathview])[2]))
-      observe(updateSelectInput(session, "control.pathview", choices = unique(metadata[, input$metaname.pathview])))
+      # observe(updateSelectInput(session, "condition1.pathview", choices = unique(metadata.groups[, input$metaname.pathview]), selected=unique(metadata.groups[,input$metaname.pathview])[1]))
+      # observe(updateSelectInput(session, "condition2.pathview", choices = unique(metadata.groups[, input$metaname.pathview]), selected=unique(metadata.groups[,input$metaname.pathview])[2]))
+      # observe(updateSelectInput(session, "control.pathview", choices = unique(metadata.groups[, input$metaname.pathview])))
 
       pv.out <- reactive({
         id <- sub(".*?mmu(.*?)_.*", "\\1", rows.selected()[1])
-        id.name <- rows.selected()[[1]]
-        result <- do_pathview(expression.matrix, pathways.gmt.file, id, id.name, metadata, input$condition1.pathview, input$condition2.pathview, input$metaname.pathview)
+        # id.name <- rows.selected()[[1]]
+        result <- do_pathview(id, de.results())
       })
 
-      observeEvent(
+      output$pathview <- renderImage(
         {
-          input$condition1.pathview
-          input$condition2.pathview
+          id <- sub(".*?mmu(.*?)_.*", "\\1", rows.selected()[1])
+
+          # A temp file to save the output.
+          # This file will be removed later by renderImage
+          outfile <- paste("mmu", as.character(id), ".pathview.png", sep = "")
+
+          # Return a list containing the filename
+          list(
+            src = outfile,
+            contentType = "image/png"
+            # width = 800,
+            # height = 1000
+          )
         },
-        output$pathview <- renderImage(
-          {
-            id <- sub(".*?mmu(.*?)_.*", "\\1", rows.selected()[1])
-
-            # A temp file to save the output.
-            # This file will be removed later by renderImage
-            outfile <- paste("mmu", as.character(id), ".pathview.png", sep = "")
-
-            # Return a list containing the filename
-            list(
-              src = outfile,
-              contentType = "image/png"
-              # width = 800,
-              # height = 1000
-            )
-          },
-          deleteFile = FALSE
-        )
+        deleteFile = FALSE
       )
 
       output$info <- renderPrint({
@@ -72,9 +61,15 @@ Pathview.server <- function(id, expression.matrix, metadata, pathways.gmt.file, 
         data <- get_data_from_the_click(pv.out(), x, y)
 
         if (length(data[1]) != 0) {
-          cat("You have clicked on the node with KEGG name", data[1], "and label", data[2])
+          cat("You have clicked on the node with KEGG name", data[1], "and label", data[2], "\n")
+          find.gene <- de.results()[de.results()$gene_name == data[2], ]
+          if (length(find.gene) != 0) {
+            cat("Significance of the selected gene is as follows: pval = ", find.gene$pval, ", pvalAdj = ", find.gene$pvalAdj)
+          } else {
+            cat("For some reason I could not find a significance of this gene")
+          }
         } else {
-          cat("This node is not supported here.")
+          cat("This node is not supported here. \n")
         }
       })
 
@@ -85,14 +80,9 @@ Pathview.server <- function(id, expression.matrix, metadata, pathways.gmt.file, 
 
         myplot
       })
+      output$pathview.density <- renderPlot(pathview.density())
 
-      observeEvent(
-        {
-          input$condition1.pathview
-          input$condition2.pathview
-        },
-        output$pathview.density <- renderPlot(pathview.density())
-      )
+      # observe(updateSelectInput(session, "control.pathview", choices = unique(metadata.groups[, de.results()$group_name[1]]), selected = unique(metadata.groups[, de.results()$group_name[1]])[1]))
 
       bar.plot.foldchange <- reactive({
         req(input$plot.click)
@@ -105,7 +95,7 @@ Pathview.server <- function(id, expression.matrix, metadata, pathways.gmt.file, 
           gene.id = data[1],
           metadata = metadata,
           control = input$control.pathview,
-          annotation.id = input$metaname.pathview
+          annotation.id = metaname.pathview()
         )
 
         plot
@@ -115,7 +105,24 @@ Pathview.server <- function(id, expression.matrix, metadata, pathways.gmt.file, 
   )
 }
 
+# Function to generate pathview figures from KEGG, see https://bioconductor.org/packages/release/bioc/html/pathview.html for further details!
 do_pathview <- function(
+    path.id,
+    de.results) {
+  fold.change <- de.results$log2FC
+
+  # print(colnames(expr.new))
+  names(fold.change) <- de.results$ensembl
+
+  bar.lim <- round(max(abs(max(fold.change)), abs(min(fold.change))))
+  pv.out <- pathview(gene.data = fold.change, pathway.id = as.character(path.id), gene.idtype = "ENSEMBL", species = "mmu", multi.state = TRUE, out.suffix = "pathview", limit = list(gene = bar.lim, cpd = bar.lim))
+
+  return(pv.out)
+}
+
+# Pathview results with fold change calculations allowed for sample-vs-sample.
+
+do_pathview_manual <- function(
     expression.matrix,
     pathways.gmt.file,
     path.id,
@@ -167,6 +174,8 @@ do_pathview <- function(
   return(pv.out)
 }
 
+# Pathview results for fold change calculations form DEseq2 results page.
+
 plot_density <- function(
     data.frame) {
   x.lims <- max(abs(max(data.frame$mol.data)), abs(min(data.frame$mol.data)))
@@ -177,6 +186,8 @@ plot_density <- function(
 
   return(p)
 }
+
+# A bar plot showing FC values across samples for a given gene; requires the control sample to be chosen, against which the fold change is found
 
 plot_fc_of_gene <- function(
     expression.matrix,
@@ -219,6 +230,8 @@ plot_fc_of_gene <- function(
 
   return(bar.plot.of.gene)
 }
+
+# Function to read the data from the pathview figure upon a click by a user
 
 get_data_from_the_click <- function(
     pv.out,

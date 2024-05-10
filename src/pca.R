@@ -3,12 +3,16 @@
 library(dplyr)
 library(memoise)
 
+# PCA on X
+
 do_pca <- function(
     expression.matrix) {
   expr.PCA.list <- stats::prcomp(expression.matrix, center = TRUE, scale = TRUE)
 
   return(expr.PCA.list)
 }
+
+# PCA on X^T
 
 do_pca_reverse <- function(
     expression.matrix) {
@@ -19,6 +23,8 @@ do_pca_reverse <- function(
 
   return(result)
 }
+
+# PCA on X^T ordered by the expression
 
 do_pca_reverse_order <- function(
     expression.matrix,
@@ -32,12 +38,16 @@ do_pca_reverse_order <- function(
   return(expr.PCA.list)
 }
 
+# Get original matrix X from the PCA results
+
 prcomp_reconstruct_data <- function(
     expr) {
   result <- t(t(expr$x %*% t(expr$rotation)) * expr$scale + expr$center)
 
   return(result)
 }
+
+# Useful diagnostics from the PCA: distances from the center, cos2 and contributions
 
 get_pca_results <- function(ind.coord, data, eigenvalues) {
   eigenvalues <- eigenvalues[1:ncol(ind.coord)]
@@ -76,6 +86,8 @@ get_pca_results <- function(ind.coord, data, eigenvalues) {
 
   return(ind)
 }
+
+# Calculate cumulative contributions
 
 sum_contrib_pca <- function(
     expr.PCA.list,
@@ -119,7 +131,9 @@ sum_contrib_pca <- function(
   return(contrib)
 }
 
-sort_pca_genes_by_scores <- function(
+# Sort the result from PCA on X^T by the values of the loading matrix
+
+sort_pca_genes_by_loading <- function(
     expression.matrix,
     pca = c("PC1"),
     n.abundant = 500) {

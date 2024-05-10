@@ -14,7 +14,7 @@ DE.ui <- function(id, metadata.groups) {
       )
     ),
     fluidRow(
-      box(plotOutput(NS(id, "volcano.de"), height = 500, brush = NS(id, "brush.volcano")), width = 9, title = "Volcano plot"),
+      box(plotOutput(NS(id, "volcano.de"), height = 500, brush = NS(id, "brush.volcano")), width = 9, title = "Volcano plot", footer = "Scatter of genes in the adjusted p-value vs fold change plane, you may brush over the points to extract more information on the genes, like their p-values and names."),
       box(sliderInput(NS(id, "p.threshold"),
         label = "Select p-value threshold",
         min = 0.001, value = 0.05, max = 0.05, step = 0.01, ticks = TRUE
@@ -33,6 +33,10 @@ DE.server <- function(id, expression.matrix, metadata, metadata.groups, rows.sel
   moduleServer(
     id,
     function(input, output, session) {
+      observe(updateSelectInput(session, "condition1.de", choices = unique(metadata.groups[, input$metaname.de]), selected = unique(metadata.groups[, input$metaname.de])[1]))
+      observe(updateSelectInput(session, "condition2.de", choices = unique(metadata.groups[, input$metaname.de]), selected = unique(metadata.groups[, input$metaname.de])[2]))
+      observe(updateSelectInput(session, "control.pathview", choices = unique(metadata.groups[, input$metaname.de])))
+
       expression.matrix.sorted <- reactive({
         id <- sub(".*?mmu(.*?)_.*", "\\1", rows.selected()[1])
         id.name <- rows.selected()[1]
@@ -48,12 +52,14 @@ DE.server <- function(id, expression.matrix, metadata, metadata.groups, rows.sel
           expression.matrix = expression.matrix.sorted(),
           condition = metadata.sorted(),
           var1 = input$condition1.de,
-          var2 = input$condition2.de
+          var2 = input$condition2.de,
+          input$metaname.de
         )
       })
-      output$summary.deseq2 <- DT::renderDataTable({
-        DT::datatable(deseq2.results())
-      })
+      output$summary.deseq2 <- DT::renderDataTable(
+        deseq2.results(),
+        server = FALSE, rownames = FALSE, extensions = "Buttons", selection = "single", options = list(autoWidth = TRUE, buttons = c("csv", "excel"), dom = "Bfrtip", columnDefs = list(list(visible = FALSE, targets = c(0, 6))))
+      )
 
       volcano.plot <- reactive({
         myplot <- volcano_plot(deseq2.results(),
@@ -72,16 +78,21 @@ DE.server <- function(id, expression.matrix, metadata, metadata.groups, rows.sel
           dplyr::select(gene_name, log2FC, pval, pvalAdj, log10pvalAdj)
         brushedPoints(display.table, input$brush.volcano)
       })
+
+      return(list(deseq2.results, reactive(input$metaname.de)))
     }
   )
 }
+
+# Run Deseq2 analysis
 
 DEanalysis_deseq2 <- function(
     expression.matrix,
     condition,
     var1,
-    var2) {
-  expression.matrix <- round(expression.matrix)
+    var2,
+    de.groups) {
+  expression.matrix <- round(expression.matrix) # Round values of the expression matrix, some pipelines return non-integer values due to approximate values used
   expression.matrix <- # Remove genes of constant expression
     expression.matrix[matrixStats::rowMins(expression.matrix) !=
       matrixStats::rowMaxs(expression.matrix), ]
@@ -101,18 +112,22 @@ DEanalysis_deseq2 <- function(
   find.labels <- expression.matrix.symbols[expression.matrix.symbols$ensembl %in% rownames(expression.matrix), ]
   labels <- find.labels$NAME
 
+  # Reassamble the table for the output that will used in other modules
   gene_id <- NULL
   pval <- NULL
   deseq2.output <- tibble::tibble(
+    ensembl = rownames(deseq.res),
     gene_name = labels,
     log2exp = log2(rowMeans(expression.matrix)),
     log2FC = deseq.res$log2FoldChange,
     pval = deseq.res$pvalue,
     pvalAdj = stats::p.adjust(pval, method = "BH"),
+    group_name = rep(de.groups, length.out = length(rownames(deseq.res)))
   )
-
   return(deseq2.output)
 }
+
+# Volcano plot of genes within the enrichment pathway
 
 volcano_plot <- function(
     genes.de.results,

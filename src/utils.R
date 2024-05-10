@@ -19,6 +19,8 @@ sort_genes <- function(
   expr.list
 }
 
+# Read off the genes from the results table of enrichment analysis
+
 get_genes_from_column <- function(
     table,
     row,
@@ -26,6 +28,8 @@ get_genes_from_column <- function(
   row.selected <- table()[row, column]
   return(row.selected)
 }
+
+# Conversion function between gene convenion; here from ensembl to symbol name
 
 convert_from_esembl_to_symbol <- function(
     expression.matrix) {
@@ -44,6 +48,8 @@ convert_from_esembl_to_symbol <- function(
 
   return(expression.matrix.final)
 }
+
+# Find genes from expression matrix that are also contained within the selected pathway
 
 select_genes_for_pathway <- function(
     expression.matrix,
@@ -85,6 +91,8 @@ select_genes_for_pathway <- function(
 
   return(sorted.data)
 }
+
+# Get the information from meta-data table given two conditions and name of the group
 
 select_meta_for_pathway <- function(
     metadata,
