@@ -1,5 +1,7 @@
 # shiny-dashboard
-Shiny dashboard for omics data
+Welcome to the shiny dashboard for omics data with PCA driven analyses giving you the visual tools to perform enrichment and differential expression analysis, and interact with the pathway diagrams. 
+
+For further information, please see our [wiki](https://github.com/tamaraevst/shiny-dashboard/wiki) page for instructions on data needed and conventions used. 
 
 Wish list for the web page:
 
@@ -10,5 +12,4 @@ Wish list for the web page:
 - Differential Expression :heavy_check_mark:
 - Fill in wiki :construction:
 - Profiling :construction:
-
-See the [wiki](https://github.com/tamaraevst/shiny-dashboard/wiki) page for instructions on data needed and conventions used. 
+- Organism supported :mouse: (other organisms can be easily added)
