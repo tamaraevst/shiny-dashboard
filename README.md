@@ -13,3 +13,19 @@ Wish list for the web page:
 - Fill in wiki :construction:
 - Profiling :construction:
 - Organism supported :mouse: (other organisms can be easily added)
+
+You will need the following R packages installed on your system:
+
+* ``` dplyr ```
+* ``` ggplot2 ```
+* ``` reshape ```
+* ``` memoise ```
+* ``` shiny ```
+* ``` shinydashboard ```
+* ``` here ```
+* ``` DT ```
+* ``` fgsea ```
+* ``` DESeq2 ```
+* ``` pathview ```
+* ``` AnnotationDbi ```
+* ``` org.Mm.eg.db ``` (or equivalent package relevant to your chosen organism)
